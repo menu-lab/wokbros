@@ -1,1 +1,434 @@
 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Super Wok Bros - Mario Jump</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    body {
+      background-color: #0d0809;
+      color: #fff;
+      font-family: 'Press Start 2P', monospace, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Pantalla superior del juego (Canvas) */
+    #canvas-container {
+      width: 100%;
+      flex: 1;
+      background: #5c94fc; /* Azul cielo clásico NES */
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+
+    /* Panel inferior con Gamepad y Comercial */
+    #bottom-panel {
+      height: 44vh;
+      background: #181112;
+      border-top: 4px solid #d32228;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 12px 16px 16px;
+    }
+
+    /* Barra comercial */
+    .promo-bar {
+      background: #2b1314;
+      border: 2px solid #ffcc00;
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .promo-text {
+      font-size: 8px;
+      line-height: 1.5;
+      color: #fff;
+    }
+
+    .promo-text strong {
+      color: #ffcc00;
+      font-size: 9px;
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .btn-wa {
+      background: #25d366;
+      color: #fff;
+      text-decoration: none;
+      font-size: 9px;
+      font-weight: bold;
+      padding: 10px 12px;
+      border-radius: 8px;
+      white-space: nowrap;
+      border: 2px solid #1aa84f;
+      box-shadow: 0 4px 0 #12632f;
+    }
+
+    .btn-wa:active {
+      transform: translateY(3px);
+      box-shadow: none;
+    }
+
+    /* Zona de Mandos Táctiles */
+    .controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: 1;
+      padding: 10px 0 0;
+    }
+
+    .dpad-info {
+      font-size: 8px;
+      color: #bbb;
+      line-height: 1.8;
+      background: #24191a;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #442a2b;
+      max-width: 140px;
+    }
+
+    .jump-btn-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-jump {
+      width: 96px;
+      height: 96px;
+      background: linear-gradient(180deg, #e52521 0%, #a81310 100%);
+      border: 4px solid #ffcc00;
+      border-radius: 50%;
+      color: #fff;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 0 #6e0907, 0 10px 20px rgba(0,0,0,0.6);
+      cursor: pointer;
+    }
+
+    .btn-jump:active {
+      transform: translateY(6px);
+      box-shadow: 0 2px 0 #6e0907;
+      background: #ff3b37;
+    }
+
+    .jump-label {
+      font-size: 8px;
+      color: #ffcc00;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Pantalla del Juego 100% Nativo en Canvas -->
+  <div id="canvas-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <!-- Panel Inferior: Comercial + Botón de Salto -->
+  <div id="bottom-panel">
+    
+    <!-- Barra comercial -->
+    <div class="promo-bar">
+      <div class="promo-text">
+        <strong>SUPER WOK BROS 🥡</strong>
+        15% DCTO EN TU PEDIDO
+      </div>
+      <a href="https://wa.me/569XXXXXXXX?text=Hola%20Super%20Wok!%20Tengo%20el%20cartucho%20gamer%20y%20quiero%20mi%2015%%20de%20descuento" class="btn-wa">
+        WHATSAPP
+      </a>
+    </div>
+
+    <!-- Mando táctil grande para el pulgar -->
+    <div class="controls-row">
+      <div class="dpad-info">
+        ★ REGLAS ★<br>
+        Esquiva las tuberías verdes y suma puntos para ganar tu cupón VIP.
+      </div>
+
+      <div class="jump-btn-area">
+        <button class="btn-jump" id="jumpBtn">SALTAR</button>
+        <span class="jump-label">TOCA PARA SALTAR</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Estado del juego
+    let frames = 0;
+    let score = 0;
+    let highScore = 0;
+    let gameState = 'START'; // START, PLAY, GAMEOVER
+
+    // Personaje estilo Mario Pixel 8-Bit
+    const mario = {
+      x: 60,
+      y: 150,
+      w: 24,
+      h: 28,
+      gravity: 0.38,
+      velocity: 0,
+      jumpForce: -6.8,
+
+      draw() {
+        // Gorra y camisa roja
+        ctx.fillStyle = '#e52521';
+        ctx.fillRect(this.x + 4, this.y, 16, 8);
+        ctx.fillRect(this.x, this.y + 8, 24, 10);
+
+        // Cara / Piel
+        ctx.fillStyle = '#ffcca3';
+        ctx.fillRect(this.x + 8, this.y + 4, 12, 6);
+
+        // Overol azul
+        ctx.fillStyle = '#0026ff';
+        ctx.fillRect(this.x + 4, this.y + 16, 16, 8);
+
+        // Botón dorado
+        ctx.fillStyle = '#ffcc00';
+        ctx.fillRect(this.x + 6, this.y + 18, 3, 3);
+        ctx.fillRect(this.x + 15, this.y + 18, 3, 3);
+
+        // Zapatos cafés
+        ctx.fillStyle = '#6b3300';
+        ctx.fillRect(this.x + 2, this.y + 24, 8, 4);
+        ctx.fillRect(this.x + 14, this.y + 24, 8, 4);
+      },
+
+      update() {
+        this.velocity += this.gravity;
+        this.y += this.velocity;
+
+        // Choque con suelo
+        if (this.y + this.h >= canvas.height - 20) {
+          this.y = canvas.height - 20 - this.h;
+          gameOver();
+        }
+        // Choque con techo
+        if (this.y <= 0) {
+          this.y = 0;
+          this.velocity = 0;
+        }
+      },
+
+      jump() {
+        this.velocity = this.jumpForce;
+      },
+
+      reset() {
+        this.y = canvas.height / 2 - 20;
+        this.velocity = 0;
+      }
+    };
+
+    // Tuberías verdes estilo Mario Bros
+    const pipes = {
+      items: [],
+      gap: 130,
+      speed: 2.2,
+
+      draw() {
+        for (let p of this.items) {
+          ctx.fillStyle = '#00a800'; // Verde tubería NES
+          // Tubería arriba
+          ctx.fillRect(p.x, 0, p.w, p.top);
+          // Borde superior
+          ctx.fillStyle = '#007000';
+          ctx.fillRect(p.x - 3, p.top - 18, p.w + 6, 18);
+
+          // Tubería abajo
+          ctx.fillStyle = '#00a800';
+          ctx.fillRect(p.x, p.bottom, p.w, canvas.height - p.bottom);
+          // Borde inferior
+          ctx.fillStyle = '#007000';
+          ctx.fillRect(p.x - 3, p.bottom, p.w + 6, 18);
+        }
+      },
+
+      update() {
+        if (frames % 90 === 0) {
+          const minTop = 40;
+          const maxTop = canvas.height - this.gap - 60;
+          const top = Math.floor(Math.random() * (maxTop - minTop + 1)) + minTop;
+          const bottom = top + this.gap;
+          this.items.push({ x: canvas.width, top: top, bottom: bottom, w: 48, scored: false });
+        }
+
+        for (let i = 0; i < this.items.length; i++) {
+          let p = this.items[i];
+          p.x -= this.speed;
+
+          // Detección de colisión
+          if (
+            mario.x + mario.w > p.x &&
+            mario.x < p.x + p.w &&
+            (mario.y < p.top || mario.y + mario.h > p.bottom)
+          ) {
+            gameOver();
+          }
+
+          // Sumar puntos
+          if (p.x + p.w < mario.x && !p.scored) {
+            score++;
+            p.scored = true;
+          }
+
+          // Eliminar si sale de pantalla
+          if (p.x + p.w < -10) {
+            this.items.splice(i, 1);
+            i--;
+          }
+        }
+      },
+
+      reset() {
+        this.items = [];
+      }
+    };
+
+    function gameOver() {
+      gameState = 'GAMEOVER';
+      if (score > highScore) highScore = score;
+    }
+
+    function triggerAction() {
+      if (gameState === 'START') {
+        gameState = 'PLAY';
+        mario.reset();
+        pipes.reset();
+        score = 0;
+        mario.jump();
+      } else if (gameState === 'PLAY') {
+        mario.jump();
+      } else if (gameState === 'GAMEOVER') {
+        gameState = 'START';
+      }
+    }
+
+    // Eventos táctiles
+    document.getElementById('jumpBtn').addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      triggerAction();
+    }, { passive: false });
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      triggerAction();
+    }, { passive: false });
+
+    // Render loop
+    function loop() {
+      // 1. Fondo cielo
+      ctx.fillStyle = '#5c94fc';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Nubes decorativas
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.fillRect(30, 40, 60, 16);
+      ctx.fillRect(50, 30, 40, 20);
+      ctx.fillRect(200, 70, 70, 16);
+
+      // Suelo bloques NES
+      ctx.fillStyle = '#d88b28';
+      ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, canvas.height - 20, canvas.width, 2);
+
+      if (gameState === 'PLAY') {
+        pipes.update();
+        pipes.draw();
+        mario.update();
+        mario.draw();
+        frames++;
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '14px "Press Start 2P"';
+        ctx.fillText("SCORE " + score, 16, 30);
+
+      } else if (gameState === 'START') {
+        mario.draw();
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText("SUPER MARIO JUMP", canvas.width / 2, canvas.height / 2 - 30);
+        ctx.fillStyle = '#ffcc00';
+        ctx.font = '9px "Press Start 2P"';
+        ctx.fillText("TOCA SALTAR PARA EMPEZAR", canvas.width / 2, canvas.height / 2 + 10);
+        ctx.textAlign = 'left';
+
+      } else if (gameState === 'GAMEOVER') {
+        pipes.draw();
+        mario.draw();
+        ctx.fillStyle = '#000';
+        ctx.fillRect(canvas.width / 2 - 120, canvas.height / 2 - 50, 240, 90);
+        ctx.strokeStyle = '#ffcc00';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(canvas.width / 2 - 120, canvas.height / 2 - 50, 240, 90);
+
+        ctx.fillStyle = '#e52521';
+        ctx.font = '12px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 25);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '9px "Press Start 2P"';
+        ctx.fillText("PUNTOS: " + score, canvas.width / 2, canvas.height / 2);
+        ctx.fillText("RECORD: " + highScore, canvas.width / 2, canvas.height / 2 + 18);
+        ctx.textAlign = 'left';
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
