@@ -26,11 +26,10 @@
       overflow: hidden;
     }
 
-    /* Pantalla superior del juego (Canvas) */
     #canvas-container {
       width: 100%;
       flex: 1;
-      background: #5c94fc; /* Azul cielo clásico NES */
+      background: #5c94fc;
       position: relative;
       overflow: hidden;
     }
@@ -42,7 +41,6 @@
       image-rendering: pixelated;
     }
 
-    /* Panel inferior con Gamepad y Comercial */
     #bottom-panel {
       height: 42vh;
       background: #181112;
@@ -53,7 +51,6 @@
       padding: 10px 16px 14px;
     }
 
-    /* Barra comercial dinámica */
     .promo-bar {
       background: #2b1314;
       border: 2px solid #ffcc00;
@@ -96,7 +93,6 @@
       box-shadow: none;
     }
 
-    /* Zona de Mandos Táctiles */
     .controls-row {
       display: flex;
       align-items: center;
@@ -153,15 +149,11 @@
 </head>
 <body>
 
-  <!-- Pantalla del Juego en Canvas -->
   <div id="canvas-container">
     <canvas id="gameCanvas"></canvas>
   </div>
 
-  <!-- Panel Inferior: Comercial + Botón de Salto -->
   <div id="bottom-panel">
-    
-    <!-- Barra comercial dinámica -->
     <div class="promo-bar">
       <div class="promo-text">
         <strong>WOK BROS 🥡</strong>
@@ -172,7 +164,6 @@
       </a>
     </div>
 
-    <!-- Mando táctil grande para el pulgar -->
     <div class="controls-row">
       <div class="dpad-info">
         ★ MODO RUNNER ★<br>
@@ -184,7 +175,6 @@
         <span class="jump-label">TOCA PARA SALTAR</span>
       </div>
     </div>
-
   </div>
 
   <script>
@@ -198,9 +188,9 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // Sprite de Mario enviado por el usuario
+    // Carga de la imagen original subida a GitHub
     const marioImg = new Image();
-    marioImg.src = "data:image/gif;base64,R0lGODlhDwAbAIABAAD/AP///yH5BAEKAAEALAAAAAAPABsAAAJUjI+py+0PE5y02ouz3rz7D4biSJbmieYqULbuC8fyTNf2jef6zvf+DwwKh8Si8YhMKpfMpvMJjUqn1Kr1is1qt9yu9wsOi8fksvmMTqvX7Lb7DY8nCAD7";
+    marioImg.src = 'mario.gif';
 
     let frames = 0;
     let score = 0;
@@ -208,11 +198,10 @@
     let gameState = 'START';
     const floorHeight = 36;
 
-    // Mario Runner adaptado al sprite exacto
     const mario = {
       x: 45,
       y: 0,
-      w: 26,
+      w: 28,
       h: 42,
       vy: 0,
       gravity: 0.58,
@@ -233,9 +222,8 @@
           this.isGrounded = false;
         }
 
-        // Rebote sutil de carrera al correr sobre el piso
         if (this.isGrounded) {
-          this.runBob = Math.sin(frames * 0.3) * 2;
+          this.runBob = Math.sin(frames * 0.35) * 2.5;
         } else {
           this.runBob = 0;
         }
@@ -250,21 +238,25 @@
 
       draw() {
         ctx.save();
-        ctx.imageSmoothingEnabled = false; // Mantiene el pixel art nítido
+        ctx.imageSmoothingEnabled = false;
 
-        // Sombra en el suelo
         if (this.isGrounded) {
           ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
           ctx.fillRect(this.x + 3, canvas.height - floorHeight - 3, this.w - 6, 3);
         }
 
-        // Inclinación dinámica de carrera
-        const angle = this.isGrounded ? 0.05 : -0.08;
+        const angle = this.isGrounded ? (Math.sin(frames * 0.35) * 0.06) : -0.1;
         ctx.translate(this.x + this.w / 2, this.y + this.runBob + this.h / 2);
         ctx.rotate(angle);
 
-        // Renderizado del sprite
-        ctx.drawImage(marioImg, -this.w / 2, -this.h / 2, this.w, this.h);
+        if (marioImg.complete && marioImg.naturalWidth !== 0) {
+          ctx.drawImage(marioImg, -this.w / 2, -this.h / 2, this.w, this.h);
+        } else {
+          // Respaldo visible por si la imagen tarda en cargar
+          ctx.fillStyle = '#e52521';
+          ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
+        }
+
         ctx.restore();
       },
 
@@ -275,7 +267,6 @@
       }
     };
 
-    // Obstáculos en el suelo (Tuberías bajas y Tortugas Koopa)
     const obstacles = {
       items: [],
       speed: 3.2,
@@ -310,7 +301,6 @@
           const obs = this.items[i];
           obs.x -= this.speed;
 
-          // Hitbox precisa y justa
           const pad = 6;
           if (
             mario.x + mario.w - pad > obs.x &&
@@ -335,7 +325,6 @@
       draw() {
         for (let obs of this.items) {
           if (obs.type === 'pipe') {
-            // Tubería verde NES
             ctx.fillStyle = '#00a800';
             ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
             ctx.fillStyle = '#007000';
@@ -343,7 +332,6 @@
             ctx.fillStyle = '#2de02d';
             ctx.fillRect(obs.x + 3, obs.y + 2, 4, obs.h - 2);
           } else if (obs.type === 'koopa') {
-            // Caparazón Koopa verde
             ctx.fillStyle = '#00a800';
             ctx.beginPath();
             ctx.arc(obs.x + obs.w / 2, obs.y + obs.h / 2, obs.w / 2, 0, Math.PI * 2);
@@ -382,7 +370,6 @@
       }
     }
 
-    // Eventos táctiles
     document.getElementById('jumpBtn').addEventListener('touchstart', (e) => {
       e.preventDefault();
       triggerAction();
@@ -394,24 +381,20 @@
     }, { passive: false });
 
     function loop() {
-      // Fondo cielo NES
       ctx.fillStyle = '#5c94fc';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Nubes decorativas
       ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
       ctx.fillRect(30, 30, 50, 14);
       ctx.fillRect(45, 22, 35, 16);
       ctx.fillRect(180, 50, 60, 14);
 
-      // Suelo de bloques de ladrillo
       const groundY = canvas.height - floorHeight;
       ctx.fillStyle = '#d88b28';
       ctx.fillRect(0, groundY, canvas.width, floorHeight);
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, groundY, canvas.width, 3);
 
-      // Bloques decorativos en movimiento
       ctx.fillStyle = '#b05d15';
       for (let x = 0; x < canvas.width; x += 32) {
         ctx.fillRect(x + (frames % 32), groundY + 8, 28, 6);
